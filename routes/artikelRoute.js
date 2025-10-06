@@ -9,7 +9,7 @@ const sharp = require("sharp"); // 🔥 untuk kompres gambar
 // === Konfigurasi multer ===
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/berita");
+    cb(null, "uploads/artikel");
   },
   filename: (req, file, cb) => {
     const uniqueName =
@@ -31,15 +31,15 @@ const upload = multer({
 });
 
 // Pastikan folder ada
-if (!fs.existsSync("uploads/berita")) {
-  fs.mkdirSync("uploads/berita", { recursive: true });
+if (!fs.existsSync("uploads/artikel")) {
+  fs.mkdirSync("uploads/artikel", { recursive: true });
 }
 
 // === CRUD BERITA ===
 
 // GET semua berita
 router.get("/", (req, res) => {
-  db.query("SELECT * FROM berita ORDER BY id DESC", (err, results) => {
+  db.query("SELECT * FROM artikel ORDER BY id DESC", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(results);
   });
@@ -48,17 +48,17 @@ router.get("/", (req, res) => {
 // GET berita by ID
 router.get("/:id", (req, res) => {
   const { id } = req.params;
-  db.query("SELECT * FROM berita WHERE id = ?", [id], (err, results) => {
+  db.query("SELECT * FROM artikel WHERE id = ?", [id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0)
-      return res.status(404).json({ message: "Berita tidak ditemukan" });
+      return res.status(404).json({ message: "artikel tidak ditemukan" });
     res.json(results[0]);
   });
 });
 
 // POST tambah berita + upload foto
 router.post("/", upload.single("foto"), async (req, res) => {
-  const { judul, isi, penulis } = req.body;
+  const { judul, isi, penulis, tanggal, kategori } = req.body;
   if (!judul || !isi) return res.status(400).json({ message: "Judul dan isi wajib diisi" });
 
   let fotoPath = null;
@@ -66,7 +66,7 @@ router.post("/", upload.single("foto"), async (req, res) => {
   // 🔥 Kompres foto jika ada
   if (req.file) {
     const originalPath = req.file.path;
-    const compressedPath = `uploads/berita/compressed-${req.file.filename}`;
+    const compressedPath = `uploads/berita/himpana-${req.file.filename}`;
 
     try {
       await sharp(originalPath)
@@ -84,11 +84,11 @@ router.post("/", upload.single("foto"), async (req, res) => {
   }
 
   db.query(
-    "INSERT INTO berita (judul, isi, penulis, foto) VALUES (?, ?, ?, ?)",
-    [judul, isi, penulis, fotoPath],
+    "INSERT INTO artikel (judul, isi, penulis, foto, tanggal, kategori) VALUES (?, ?, ?, ?, ?, ?)",
+    [judul, isi, penulis, fotoPath, tanggal, kategori],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ message: "Berita berhasil ditambahkan", id: result.insertId });
+      res.json({ message: "Artikel berhasil ditambahkan", id: result.insertId });
     }
   );
 });
@@ -96,12 +96,12 @@ router.post("/", upload.single("foto"), async (req, res) => {
 // PUT update berita (opsional: update foto)
 router.put("/:id", upload.single("foto"), async (req, res) => {
   const { id } = req.params;
-  const { judul, isi, penulis } = req.body;
+  const { judul, isi, penulis, tanggal, kategori } = req.body;
   let fotoPath = null;
 
   if (req.file) {
     const originalPath = req.file.path;
-    const compressedPath = `uploads/berita/compressed-${req.file.filename}`;
+    const compressedPath = `uploads/berita/himpana-${req.file.filename}`;
 
     try {
       await sharp(originalPath)
@@ -117,8 +117,8 @@ router.put("/:id", upload.single("foto"), async (req, res) => {
     }
   }
 
-  let sql = "UPDATE berita SET judul = ?, isi = ?, penulis = ?";
-  const values = [judul, isi, penulis];
+  let sql = "UPDATE artikel SET judul = ?, isi = ?, penulis = ?, tanggal = ?, kategori = ?";
+  const values = [judul, isi, penulis, tanggal, kategori];
 
   if (fotoPath) {
     sql += ", foto = ?";
@@ -130,7 +130,7 @@ router.put("/:id", upload.single("foto"), async (req, res) => {
 
   db.query(sql, values, (err, result) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "Berita berhasil diperbarui" });
+    res.json({ message: "Artikel berhasil diperbarui" });
   });
 });
 

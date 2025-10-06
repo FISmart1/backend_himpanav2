@@ -13,22 +13,4 @@ yarn-error.log*
 uploads/
 
 # Build output / temporary files
-dist/
-build/
-tmp/
-*.tmp
 
-# System files
-.DS_Store
-Thumbs.db
-
-# IDE/editor files
-.vscode/
-.idea/
-
-# Coverage / testing
-coverage/
-
-# Backup files
-*.bak
-*.swp
