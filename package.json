@@ -1,0 +1,26 @@
+{
+  "name": "backend_himpana",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "canvas": "^3.2.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "mailtrap": "^4.3.0",
+    "multer": "^2.0.2",
+    "mysql2": "^3.15.1",
+    "nodemailer": "^7.0.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
