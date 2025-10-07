@@ -4,25 +4,23 @@ import path from "path";
 import axios from "axios";
 import FormData from "form-data";
 import { createCanvas, loadImage, registerFont } from "canvas";
-import db from "../db.js"; // import koneksi pool
-import mysql from "mysql2/promise"; // pakai mysql2/promise
+import db from "../db.js";
+import mysql from "mysql2/promise";
 
 const router = express.Router();
 
-// Konfigurasi Green API
+// Green API
 const GREEN_ID = "7105337536";
 const GREEN_TOKEN = "38d451148e894a598175e91891fb9ce0f6a4d1157dad426881";
 
-// Folder penyimpanan sementara
+// Folder upload
 const uploadDir = "uploads/wa";
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Daftarkan font biar bisa pakai Arial bold
 registerFont("C:/Windows/Fonts/arialbd.ttf", { family: "ArialBold" });
 
-// Konfigurasi koneksi MySQL
 const dbConfig = {
   host: "localhost",
   user: "root",
@@ -41,7 +39,7 @@ router.post("/api/kirim-wa", async (req, res) => {
   }
 
   try {
-    // === Canvas & ID card ===
+    // === Canvas & ID Card ===
     const template = await loadImage(path.resolve("assets/ID_CARD_FRONT_2024.jpg"));
     const canvas = createCanvas(template.width, template.height);
     const ctx = canvas.getContext("2d");
@@ -59,16 +57,17 @@ router.post("/api/kirim-wa", async (req, res) => {
     ctx.fillText(`NP. ${no_pensiunan}`, 715, 330);
 
     const filename = `idcard-${Date.now()}.jpg`;
-    const filePath = path.join("uploads/wa", filename);
+    const filePath = path.join(uploadDir, filename);
     await fs.promises.writeFile(filePath, canvas.toBuffer("image/jpeg", { quality: 0.95 }));
 
-    // === Simpan data ke DB ===
+    // === Simpan data + path gambar ke DB ===
+    const fotoPath = `/uploads/wa/${filename}`; // path relatif untuk akses dari web
     await db.execute(
-      "INSERT INTO member (nama, no_pensiun, no_wa, hari_lahir, alamat, kota) VALUES (?, ?, ?, ?, ?, ?)",
-      [nama, no_pensiunan, no_wa, hari_lahir, alamat, kota]
+      "INSERT INTO member (nama, no_pensiun, no_wa, hari_lahir, alamat, kota, foto_idcard) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [nama, no_pensiunan, no_wa, hari_lahir, alamat, kota, fotoPath]
     );
 
-    // === Format WA & kirim ===
+    // === Kirim ke WhatsApp ===
     let phoneNumber = no_wa.replace(/[^0-9]/g, "");
     if (phoneNumber.startsWith("0")) phoneNumber = "62" + phoneNumber.slice(1);
     else if (!phoneNumber.startsWith("62")) phoneNumber = "62" + phoneNumber;
@@ -89,14 +88,22 @@ router.post("/api/kirim-wa", async (req, res) => {
       maxBodyLength: Infinity,
     });
 
-    res.json({ status: "success", message: "Pesan & gambar berhasil dikirim", data: response.data });
+    res.json({
+      status: "success",
+      message: "Pesan & gambar berhasil dikirim",
+      data: response.data,
+      foto_idcard: fotoPath,
+    });
 
-    fs.unlink(filePath, () => {});
+    // (JANGAN dihapus file-nya agar bisa diakses profil)
   } catch (error) {
     console.error("❌ Gagal kirim WA:", error.response?.data || error.message);
-    res.status(500).json({ status: "error", message: "Gagal kirim WA", detail: error.response?.data || error.message });
+    res.status(500).json({
+      status: "error",
+      message: "Gagal kirim WA",
+      detail: error.response?.data || error.message,
+    });
   }
 });
-
 
 export default router;
