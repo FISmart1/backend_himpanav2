@@ -5,7 +5,7 @@ const db = mysql.createConnection({
   host: "localhost",
   user: "root", // sesuaikan
   password: "",
-  database: "db_himpana", // sesuaikan nama DB
+  database: "himpanac_backend", // sesuaikan nama DB
 });
 
 db.connect((err) => {

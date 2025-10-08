@@ -21,17 +21,12 @@ if (!fs.existsSync(uploadDir)) {
 
 registerFont("C:/Windows/Fonts/arialbd.ttf", { family: "ArialBold" });
 
-const dbConfig = {
-  host: "localhost",
-  user: "root",
-  password: "passwordmu",
-  database: "namadb",
-};
+
 
 router.post("/api/kirim-wa", async (req, res) => {
-  const { nama, no_pensiunan, no_wa, hari_lahir, alamat, kota } = req.body;
+  const { name, card_number, phone_number, birth_date, address, city } = req.body;
 
-  if (!nama || !no_pensiunan || !no_wa || !hari_lahir || !alamat || !kota) {
+  if (!name || !card_number || !phone_number || !birth_date || !address || !city) {
     return res.status(400).json({
       status: "error",
       message: "Data tidak lengkap",
@@ -47,14 +42,14 @@ router.post("/api/kirim-wa", async (req, res) => {
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 40px ArialBold";
-    ctx.fillText(nama.toUpperCase(), 47, 520);
+    ctx.fillText(name.toUpperCase(), 47, 520);
 
     ctx.font = "bold 28px ArialBold";
-    ctx.fillText(`NA. ${no_pensiunan}`, 47, 560);
+    ctx.fillText(`NA. ${card_number}`, 47, 560);
 
     ctx.fillStyle = "#000000";
     ctx.font = "28px ArialBold";
-    ctx.fillText(`NP. ${no_pensiunan}`, 715, 330);
+    ctx.fillText(`NP. ${card_number}`, 715, 330);
 
     const filename = `idcard-${Date.now()}.jpg`;
     const filePath = path.join(uploadDir, filename);
@@ -63,19 +58,19 @@ router.post("/api/kirim-wa", async (req, res) => {
     // === Simpan data + path gambar ke DB ===
     const fotoPath = `/uploads/wa/${filename}`; // path relatif untuk akses dari web
     await db.execute(
-      "INSERT INTO member (nama, no_pensiun, no_wa, hari_lahir, alamat, kota, foto_idcard) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [nama, no_pensiunan, no_wa, hari_lahir, alamat, kota, fotoPath]
+      "INSERT INTO members (name, card_number, phone_number, birth_date, address, city, card_image_path) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [name, card_number, phone_number, birth_date, address, city, fotoPath]
     );
 
     // === Kirim ke WhatsApp ===
-    let phoneNumber = no_wa.replace(/[^0-9]/g, "");
+    let phoneNumber = phone_number.replace(/[^0-9]/g, "");
     if (phoneNumber.startsWith("0")) phoneNumber = "62" + phoneNumber.slice(1);
     else if (!phoneNumber.startsWith("62")) phoneNumber = "62" + phoneNumber;
     const chatId = `${phoneNumber}@c.us`;
 
     const form = new FormData();
     form.append("chatId", chatId);
-    form.append("caption", `Hai ${nama}, ini ID Card kamu 🎫`);
+    form.append("caption", `Hai ${name}, ini ID Card kamu 🎫`);
     form.append("file", fs.createReadStream(filePath), {
       filename: "idcard.jpg",
       contentType: "image/jpeg",
