@@ -1,10 +1,11 @@
-const express = require("express");
+import express from "express";
+import db from "../db.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import sharp from "sharp";
+
 const router = express.Router();
-const db = require("../db");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const sharp = require("sharp"); // 🔥 untuk kompres gambar
 
 // === Konfigurasi multer ===
 const storage = multer.diskStorage({
@@ -35,9 +36,9 @@ if (!fs.existsSync("uploads/artikel")) {
   fs.mkdirSync("uploads/artikel", { recursive: true });
 }
 
-// === CRUD BERITA ===
+// === CRUD ARTIKEL ===
 
-// GET semua berita
+// GET semua artikel
 router.get("/", (req, res) => {
   db.query("SELECT * FROM artikel ORDER BY id DESC", (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -45,41 +46,39 @@ router.get("/", (req, res) => {
   });
 });
 
-// GET berita by ID
+// GET artikel by ID
 router.get("/:id", (req, res) => {
   const { id } = req.params;
   db.query("SELECT * FROM artikel WHERE id = ?", [id], (err, results) => {
     if (err) return res.status(500).json({ error: err.message });
     if (results.length === 0)
-      return res.status(404).json({ message: "artikel tidak ditemukan" });
+      return res.status(404).json({ message: "Artikel tidak ditemukan" });
     res.json(results[0]);
   });
 });
 
-// POST tambah berita + upload foto
+// POST tambah artikel + upload foto
 router.post("/", upload.single("foto"), async (req, res) => {
   const { judul, isi, penulis, tanggal, kategori } = req.body;
   if (!judul || !isi) return res.status(400).json({ message: "Judul dan isi wajib diisi" });
 
   let fotoPath = null;
 
-  // 🔥 Kompres foto jika ada
   if (req.file) {
     const originalPath = req.file.path;
-    const compressedPath = `uploads/berita/himpana-${req.file.filename}`;
+    const compressedPath = `uploads/artikel/himpana-${req.file.filename}`;
 
     try {
       await sharp(originalPath)
-        .resize({ width: 1000 }) // ubah resolusi maksimal 1000px
-        .jpeg({ quality: 70 }) // kompres ke 70%
+        .resize({ width: 1000 })
+        .jpeg({ quality: 70 })
         .toFile(compressedPath);
 
-      // Hapus file asli, ganti ke file terkompres
       fs.unlinkSync(originalPath);
       fotoPath = `/${compressedPath}`;
     } catch (err) {
       console.error("Gagal kompres gambar:", err);
-      fotoPath = `/${originalPath}`; // fallback
+      fotoPath = `/${originalPath}`;
     }
   }
 
@@ -93,7 +92,7 @@ router.post("/", upload.single("foto"), async (req, res) => {
   );
 });
 
-// PUT update berita (opsional: update foto)
+// PUT update artikel
 router.put("/:id", upload.single("foto"), async (req, res) => {
   const { id } = req.params;
   const { judul, isi, penulis, tanggal, kategori } = req.body;
@@ -101,7 +100,7 @@ router.put("/:id", upload.single("foto"), async (req, res) => {
 
   if (req.file) {
     const originalPath = req.file.path;
-    const compressedPath = `uploads/berita/himpana-${req.file.filename}`;
+    const compressedPath = `uploads/artikel/himpana-${req.file.filename}`;
 
     try {
       await sharp(originalPath)
@@ -134,13 +133,13 @@ router.put("/:id", upload.single("foto"), async (req, res) => {
   });
 });
 
-// DELETE berita
+// DELETE artikel
 router.delete("/:id", (req, res) => {
   const { id } = req.params;
-  db.query("DELETE FROM berita WHERE id = ?", [id], (err) => {
+  db.query("DELETE FROM artikel WHERE id = ?", [id], (err) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json({ message: "Berita berhasil dihapus" });
+    res.json({ message: "Artikel berhasil dihapus" });
   });
 });
 
-module.exports = router;
+export default router;

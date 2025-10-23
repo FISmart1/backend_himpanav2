@@ -1,11 +1,10 @@
-// db.js
-const mysql = require("mysql2");
+import mysql from "mysql2";
 
 const db = mysql.createConnection({
   host: "localhost",
-  user: "root", // sesuaikan
+  user: "root",
   password: "",
-  database: "himpanac_backend", // sesuaikan nama DB
+  database: "backend_himpana",
 });
 
 db.connect((err) => {
@@ -16,4 +15,4 @@ db.connect((err) => {
   }
 });
 
-module.exports = db;
+export default db;

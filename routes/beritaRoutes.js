@@ -1,10 +1,11 @@
-const express = require("express");
+import express from "express";
+import db from "../db.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import sharp from "sharp";
+
 const router = express.Router();
-const db = require("../db");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-const sharp = require("sharp"); // 🔥 untuk kompres gambar
 
 // === Konfigurasi multer ===
 const storage = multer.diskStorage({
@@ -20,7 +21,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // max 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|webp/;
     const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -56,30 +57,28 @@ router.get("/:id", (req, res) => {
   });
 });
 
-// POST tambah berita + upload foto
+// POST tambah berita
 router.post("/", upload.single("foto"), async (req, res) => {
   const { judul, isi, penulis } = req.body;
   if (!judul || !isi) return res.status(400).json({ message: "Judul dan isi wajib diisi" });
 
   let fotoPath = null;
 
-  // 🔥 Kompres foto jika ada
   if (req.file) {
     const originalPath = req.file.path;
     const compressedPath = `uploads/berita/compressed-${req.file.filename}`;
 
     try {
       await sharp(originalPath)
-        .resize({ width: 1000 }) // ubah resolusi maksimal 1000px
-        .jpeg({ quality: 70 }) // kompres ke 70%
+        .resize({ width: 1000 })
+        .jpeg({ quality: 70 })
         .toFile(compressedPath);
 
-      // Hapus file asli, ganti ke file terkompres
       fs.unlinkSync(originalPath);
       fotoPath = `/${compressedPath}`;
     } catch (err) {
       console.error("Gagal kompres gambar:", err);
-      fotoPath = `/${originalPath}`; // fallback
+      fotoPath = `/${originalPath}`;
     }
   }
 
@@ -93,7 +92,7 @@ router.post("/", upload.single("foto"), async (req, res) => {
   );
 });
 
-// PUT update berita (opsional: update foto)
+// PUT update berita
 router.put("/:id", upload.single("foto"), async (req, res) => {
   const { id } = req.params;
   const { judul, isi, penulis } = req.body;
@@ -143,4 +142,4 @@ router.delete("/:id", (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

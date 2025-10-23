@@ -1,13 +1,14 @@
-const express = require("express");
+import express from "express";
+import db from "../db.js";
+
 const router = express.Router();
-const db = require("../db");
 
 router.post("/api/login", (req, res) => {
-  const { nama, no_pensiun } = req.body;
+  const { name, card_number } = req.body;
 
   db.query(
-    "SELECT * FROM member WHERE nama = ? AND no_pensiun = ?",
-    [nama, no_pensiun],
+    "SELECT * FROM members WHERE name = ? AND card_number = ?",
+    [name, card_number],
     (err, results) => {
       if (err) {
         console.error("Login error:", err);
@@ -23,7 +24,4 @@ router.post("/api/login", (req, res) => {
   );
 });
 
-
-
-
-module.exports = router;
+export default router;
