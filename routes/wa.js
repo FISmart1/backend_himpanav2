@@ -71,7 +71,7 @@ router.post('/api/kirim-member', async (req, res) => {
     ctx.fillText(name.toUpperCase(), 47, 520);
 
     ctx.font = 'bold 28px ArialBold';
-    ctx.fillText(`NA. ${retirement_number}`, 47, 560);
+    ctx.fillText(`NP. ${retirement_number}`, 47, 560);
 
     ctx.fillStyle = '#000000';
     ctx.font = '28px ArialBold';
