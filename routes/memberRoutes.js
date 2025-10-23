@@ -4,11 +4,11 @@ import db from "../db.js";
 const router = express.Router();
 
 router.post("/api/login", (req, res) => {
-  const { name, card_number } = req.body;
+  const { name, retirement_number } = req.body;
 
   db.query(
-    "SELECT * FROM members WHERE name = ? AND card_number = ?",
-    [name, card_number],
+    "SELECT * FROM members WHERE name = ? AND retirement_number = ?",
+    [name, retirement_number],
     (err, results) => {
       if (err) {
         console.error("Login error:", err);
