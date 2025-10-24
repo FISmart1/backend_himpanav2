@@ -177,6 +177,9 @@ router.post('/api/kirim-member', async (req, res) => {
 /* ======================================================
    ✏️ ROUTE: Update Member
 ====================================================== */
+/* ======================================================
+   ✏️ ROUTE: Update Member
+====================================================== */
 router.put('/api/update-member', async (req, res) => {
   const { name, old_retirement_number, retirement_number, phone_number, birth_date, address, city } = req.body;
 
@@ -192,22 +195,40 @@ router.put('/api/update-member', async (req, res) => {
   }
 
   try {
-    // Ambil data lama
-    const [rows] = await db.execute('SELECT card_image_path FROM members WHERE retirement_number = ? LIMIT 1', [old_retirement_number]);
+    // 🔍 Cek apakah data lama ada
+    const [oldData] = await db.promise().query(
+      'SELECT card_image_path FROM members WHERE retirement_number = ? LIMIT 1',
+      [old_retirement_number]
+    );
 
-    if (!rows || rows.length === 0) {
-      return res.status(404).json({ status: 'error', message: 'Data member tidak ditemukan' });
+    if (!oldData.length) {
+      return res.status(404).json({ status: 'error', message: 'Data member lama tidak ditemukan.' });
     }
 
-    const oldFotoPath = rows[0].card_image_path;
+    // 🔎 Cegah duplikasi retirement_number jika berubah
+    if (retirement_number !== old_retirement_number) {
+      const [dupeCheck] = await db.promise().query(
+        'SELECT retirement_number FROM members WHERE retirement_number = ? LIMIT 1',
+        [retirement_number]
+      );
+      if (dupeCheck.length > 0) {
+        return res.status(400).json({
+          status: 'error',
+          message: `Nomor pensiun ${retirement_number} sudah terdaftar!`,
+        });
+      }
+    }
+
+    // 🧹 Hapus foto lama jika ada
+    const oldFotoPath = oldData[0].card_image_path;
     if (oldFotoPath && fs.existsSync('.' + oldFotoPath)) {
       await fs.promises.unlink('.' + oldFotoPath);
     }
 
-    // Generate card_number baru
+    // 🧮 Generate card_number baru
     const card_number = generateCardNumber();
 
-    // Buat ID card baru
+    // 🎨 Buat ID card baru
     const templatePath = path.resolve('assets/ID_CARD_FRONT_2024.jpg');
     const template = await loadImage(templatePath);
     const canvas = createCanvas(template.width, template.height);
@@ -219,7 +240,7 @@ router.put('/api/update-member', async (req, res) => {
     ctx.fillText(name.toUpperCase(), 47, 520);
 
     ctx.font = 'bold 28px ArialBold';
-    ctx.fillText(`NA. ${retirement_number}`, 47, 560);
+    ctx.fillText(`NP. ${retirement_number}`, 47, 560);
 
     ctx.fillStyle = '#000000';
     ctx.font = '28px ArialBold';
@@ -231,22 +252,32 @@ router.put('/api/update-member', async (req, res) => {
 
     const fotoPath = `/uploads/wa/${filename}`;
 
-    // Update DB
-    await db.execute(
+    // 🗃️ Update database
+    await db.promise().query(
       `UPDATE members 
-       SET name=?, retirement_number=?, card_number=?, phone_number=?, birth_date=?, address=?, city=?, card_image_path=? 
+       SET name=?, retirement_number=?, phone_number=?, birth_date=?, address=?, city=?, card_image_path=? 
        WHERE retirement_number=?`,
-      [name, retirement_number, card_number, phone_number, birth_date, address, city, fotoPath, old_retirement_number]
+      [name, retirement_number, phone_number, birth_date, address, city, fotoPath, old_retirement_number]
     );
 
+    // ✅ Respon sukses
     res.json({
       status: 'success',
       message: 'Data berhasil diperbarui dan ID Card baru dibuat',
       foto_idcard: fotoPath,
-      data: { retirement_number, card_number },
+      data: { name, retirement_number, card_number },
     });
   } catch (error) {
     console.error('❌ Gagal update member:', error);
+
+    // Deteksi error duplikat (MySQL error code)
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        status: 'error',
+        message: `Nomor pensiun ${retirement_number} sudah terdaftar di sistem.`,
+      });
+    }
+
     res.status(500).json({
       status: 'error',
       message: 'Gagal update data atau membuat ID Card baru',
@@ -254,5 +285,6 @@ router.put('/api/update-member', async (req, res) => {
     });
   }
 });
+
 
 export default router;
