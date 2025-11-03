@@ -54,6 +54,7 @@ app.use(loginmember)
 
 // === JALANKAN SERVER ===
 const PORT = 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Server berjalan di http://localhost:${PORT}`);
+const HOST = '0.0.0.0';
+app.listen(PORT, HOST, () => {
+  console.log(`✅ Server berjalan di http://${HOST}:${PORT}`);
 });
