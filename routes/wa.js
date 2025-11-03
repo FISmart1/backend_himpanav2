@@ -5,8 +5,10 @@ import { createCanvas, loadImage, registerFont } from 'canvas';
 import db from '../db.js';
 import qrcode from 'qrcode-terminal';
 import pkg from 'whatsapp-web.js';
+import { fileURLToPath } from 'url';
 const { Client, LocalAuth, MessageMedia } = pkg;
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const router = express.Router();
 
 // Folder upload
