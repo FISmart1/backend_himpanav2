@@ -16,7 +16,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Register font
-registerFont('../fonts/arialbd.ttf', { family: 'ArialBold' });
+registerFont('../fonts/ARIALBD.TTF', { family: 'ArialBold' });
 
 /* ======================================================
    ⚙️ Setup WhatsApp Web Client
