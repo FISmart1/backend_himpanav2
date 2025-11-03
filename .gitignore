@@ -1,5 +1,6 @@
 # Node modules
 node_modules/
+.wwebjs_cache
 
 # Log files
 npm-debug.log*
