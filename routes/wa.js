@@ -1,16 +1,13 @@
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import axios from 'axios';
-import FormData from 'form-data';
 import { createCanvas, loadImage, registerFont } from 'canvas';
 import db from '../db.js';
+import qrcode from 'qrcode-terminal';
+import pkg from 'whatsapp-web.js';
+const { Client, LocalAuth, MessageMedia } = pkg;
 
 const router = express.Router();
-
-// Green API
-const GREEN_ID = '7105337536';
-const GREEN_TOKEN = '38d451148e894a598175e91891fb9ce0f6a4d1157dad426881';
 
 // Folder upload
 const uploadDir = 'uploads/wa';
@@ -22,19 +19,44 @@ if (!fs.existsSync(uploadDir)) {
 registerFont('C:/Windows/Fonts/arialbd.ttf', { family: 'ArialBold' });
 
 /* ======================================================
+   ⚙️ Setup WhatsApp Web Client
+====================================================== */
+const client = new Client({
+  authStrategy: new LocalAuth({ dataPath: './wa-session' }),
+  puppeteer: {
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  },
+});
+
+client.on('qr', (qr) => {
+  console.log('📱 Scan QR untuk login WhatsApp:');
+  qrcode.generate(qr, { small: true });
+});
+
+client.on('ready', () => {
+  console.log('✅ WhatsApp Web siap digunakan!');
+});
+
+client.on('auth_failure', (msg) => {
+  console.error('❌ Gagal autentikasi WhatsApp:', msg);
+});
+
+client.initialize();
+
+/* ======================================================
    🧮 Fungsi Generate Card Number otomatis
 ====================================================== */
 function generateCardNumber() {
   const part1 = String(Math.floor(Math.random() * 999)).padStart(3, '0');
   const part2 = String(Math.floor(Math.random() * 99999)).padStart(5, '0');
-  return `NA. ${part1}.${part2}`; // Contoh: "NA. 252.00109"
+  return `NA. ${part1}.${part2}`;
 }
 
 /* ======================================================
    🔍 Validasi Format Retirement Number
 ====================================================== */
 function isValidRetirementNumber(value) {
-  // Format: 01-9-311589-40
   const pattern = /^\d{2}-\d-\d{6}-\d{2}$/;
   return pattern.test(value);
 }
@@ -71,11 +93,11 @@ router.post('/api/kirim-member', async (req, res) => {
     ctx.fillText(name.toUpperCase(), 47, 520);
 
     ctx.font = 'bold 28px ArialBold';
-    ctx.fillText(`NP. ${retirement_number}`, 47, 560);
+    ctx.fillText(card_number, 47, 560);
 
     ctx.fillStyle = '#000000';
     ctx.font = '28px ArialBold';
-    ctx.fillText(card_number, 715, 330);
+    ctx.fillText(`NP. ${retirement_number}`, 715, 330);
 
     const filename = `idcard-${Date.now()}.jpg`;
     const filePath = path.join(uploadDir, filename);
@@ -83,75 +105,62 @@ router.post('/api/kirim-member', async (req, res) => {
 
     const fotoPath = `/uploads/wa/${filename}`;
 
-    // === Simpan ke database dulu (WA boleh gagal nanti) ===
+    // === Simpan ke database ===
     await new Promise((resolve, reject) => {
       db.query(
         `INSERT INTO members (name, retirement_number, card_number, phone_number, birth_date, address, city, card_image_path)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [name, retirement_number, card_number, phone_number, birth_date, address, city, fotoPath],
         (err, results) => {
           if (err) {
-            // 🔎 Jika error karena duplikat retirement_number
             if (err.code === 'ER_DUP_ENTRY') {
-              console.warn('⚠️ Data duplikat untuk retirement_number:', retirement_number);
               return reject({
                 type: 'duplicate',
                 message: `Nomor pensiun ${retirement_number} sudah terdaftar!`,
               });
             }
-
-            console.error('❌ Gagal simpan ke database:', err);
             return reject({
               type: 'database',
-              message: 'Terjadi kesalahan saat menyimpan data ke database.',
+              message: 'Kesalahan saat menyimpan data ke database.',
               detail: err.message,
             });
           }
-
-          console.log('✅ Data member tersimpan di database:', results.insertId);
           resolve(results);
         }
       );
     });
 
-    console.log('🧩 Menyimpan ke database:', name, retirement_number);
+    console.log('🧩 Member tersimpan di database:', name, retirement_number);
 
-    // === Coba kirim WA (tapi jangan hentikan proses kalau gagal) ===
+    // === Kirim ke WhatsApp (whatsapp-web.js) ===
     try {
+      if (!client.info || !client.info.wid) {
+        throw new Error('Client WhatsApp belum siap. Tunggu sampai QR discan.');
+      }
+
       let phoneNumber = phone_number.replace(/[^0-9]/g, '');
       if (phoneNumber.startsWith('0')) phoneNumber = '62' + phoneNumber.slice(1);
       else if (!phoneNumber.startsWith('62')) phoneNumber = '62' + phoneNumber;
-      const chatId = `${phoneNumber}@c.us`;
+      const chatId = phoneNumber + '@c.us';
 
-      const form = new FormData();
-      form.append('chatId', chatId);
-      form.append('caption', `Hai ${name}, ini ID Card kamu 🎫`);
-      form.append('file', fs.createReadStream(filePath), {
-        filename: 'idcard.jpg',
-        contentType: 'image/jpeg',
-      });
+      const caption = `Hai ${name}, selamat anda telah menjadi anggota baru HIMPANA`;
+      const media = MessageMedia.fromFilePath(filePath);
 
-      const sendUrl = `https://api.green-api.com/waInstance${GREEN_ID}/sendFileByUpload/${GREEN_TOKEN}`;
-      const response = await axios.post(sendUrl, form, {
-        headers: form.getHeaders(),
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      });
+      // kirim teks dan media
+      await client.sendMessage(chatId, caption);
+      await client.sendMessage(chatId, media, { caption: 'ini 🎫ID Card Kamu' });
 
-      // Kalau berhasil kirim WA
       return res.json({
         status: 'success',
-        message: 'Data tersimpan dan ID Card berhasil dikirim ke WhatsApp',
+        message: 'Data tersimpan dan ID Card berhasil dikirim ke WhatsApp.',
         foto_idcard: fotoPath,
         data: { name, retirement_number, card_number },
       });
     } catch (waError) {
       console.warn('⚠️ Gagal kirim ke WhatsApp:', waError.message);
-
-      // Tapi tetap sukses simpan data
       return res.json({
         status: 'warning',
-        message: 'Data berhasil disimpan tapi gagal kirim WhatsApp.',
+        message: 'Data berhasil disimpan tapi gagal kirim ke WhatsApp.',
         foto_idcard: fotoPath,
         data: { name, retirement_number, card_number },
       });
@@ -162,7 +171,7 @@ router.post('/api/kirim-member', async (req, res) => {
     if (error.type === 'duplicate') {
       return res.status(400).json({
         status: 'error',
-        message: error.message || 'Nomor pensiunan sudah terdaftar di sistem.',
+        message: error.message,
       });
     }
 
@@ -174,9 +183,6 @@ router.post('/api/kirim-member', async (req, res) => {
   }
 });
 
-/* ======================================================
-   ✏️ ROUTE: Update Member
-====================================================== */
 /* ======================================================
    ✏️ ROUTE: Update Member
 ====================================================== */
@@ -195,7 +201,6 @@ router.put('/api/update-member', async (req, res) => {
   }
 
   try {
-    // 🔍 Cek apakah data lama ada
     const [oldData] = await db.promise().query(
       'SELECT card_image_path FROM members WHERE retirement_number = ? LIMIT 1',
       [old_retirement_number]
@@ -205,7 +210,6 @@ router.put('/api/update-member', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Data member lama tidak ditemukan.' });
     }
 
-    // 🔎 Cegah duplikasi retirement_number jika berubah
     if (retirement_number !== old_retirement_number) {
       const [dupeCheck] = await db.promise().query(
         'SELECT retirement_number FROM members WHERE retirement_number = ? LIMIT 1',
@@ -219,16 +223,14 @@ router.put('/api/update-member', async (req, res) => {
       }
     }
 
-    // 🧹 Hapus foto lama jika ada
     const oldFotoPath = oldData[0].card_image_path;
     if (oldFotoPath && fs.existsSync('.' + oldFotoPath)) {
       await fs.promises.unlink('.' + oldFotoPath);
     }
 
-    // 🧮 Generate card_number baru
     const card_number = generateCardNumber();
 
-    // 🎨 Buat ID card baru
+    // Buat ID Card baru
     const templatePath = path.resolve('assets/ID_CARD_FRONT_2024.jpg');
     const template = await loadImage(templatePath);
     const canvas = createCanvas(template.width, template.height);
@@ -252,7 +254,6 @@ router.put('/api/update-member', async (req, res) => {
 
     const fotoPath = `/uploads/wa/${filename}`;
 
-    // 🗃️ Update database
     await db.promise().query(
       `UPDATE members 
        SET name=?, retirement_number=?, phone_number=?, birth_date=?, address=?, city=?, card_image_path=? 
@@ -260,7 +261,6 @@ router.put('/api/update-member', async (req, res) => {
       [name, retirement_number, phone_number, birth_date, address, city, fotoPath, old_retirement_number]
     );
 
-    // ✅ Respon sukses
     res.json({
       status: 'success',
       message: 'Data berhasil diperbarui dan ID Card baru dibuat',
@@ -269,8 +269,6 @@ router.put('/api/update-member', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Gagal update member:', error);
-
-    // Deteksi error duplikat (MySQL error code)
     if (error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({
         status: 'error',
@@ -285,6 +283,5 @@ router.put('/api/update-member', async (req, res) => {
     });
   }
 });
-
 
 export default router;

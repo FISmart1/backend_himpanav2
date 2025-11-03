@@ -59,7 +59,7 @@ router.get("/:id", (req, res) => {
 
 // POST tambah berita
 router.post("/", upload.single("foto"), async (req, res) => {
-  const { judul, isi, penulis } = req.body;
+  const { judul, isi, penulis, tanggal } = req.body;
   if (!judul || !isi) return res.status(400).json({ message: "Judul dan isi wajib diisi" });
 
   let fotoPath = null;
@@ -83,8 +83,8 @@ router.post("/", upload.single("foto"), async (req, res) => {
   }
 
   db.query(
-    "INSERT INTO berita (judul, isi, penulis, foto) VALUES (?, ?, ?, ?)",
-    [judul, isi, penulis, fotoPath],
+    "INSERT INTO berita (judul, isi, penulis, tanggal, foto) VALUES (?, ?, ?, ?, ?)",
+    [judul, isi, penulis, tanggal, fotoPath],
     (err, result) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ message: "Berita berhasil ditambahkan", id: result.insertId });
@@ -95,7 +95,7 @@ router.post("/", upload.single("foto"), async (req, res) => {
 // PUT update berita
 router.put("/:id", upload.single("foto"), async (req, res) => {
   const { id } = req.params;
-  const { judul, isi, penulis } = req.body;
+  const { judul, isi, penulis, tanggal } = req.body;
   let fotoPath = null;
 
   if (req.file) {
@@ -116,8 +116,8 @@ router.put("/:id", upload.single("foto"), async (req, res) => {
     }
   }
 
-  let sql = "UPDATE berita SET judul = ?, isi = ?, penulis = ?";
-  const values = [judul, isi, penulis];
+  let sql = "UPDATE berita SET judul = ?, isi = ?, penulis = ?, tanggal = ?";
+  const values = [judul, isi, penulis, tanggal];
 
   if (fotoPath) {
     sql += ", foto = ?";
