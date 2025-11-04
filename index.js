@@ -13,7 +13,13 @@ import cabang from "./routes/cabangProvinsi.js";
 import { createCanvas } from "canvas";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ["https://himpana.com", "https://www.himpana.com"], // domain frontend
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true // penting jika frontend kirim token/cookie
+}));
+
 app.use(bodyParser.json());
 
 // === KONFIGURASI ===
