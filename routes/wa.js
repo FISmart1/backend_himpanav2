@@ -27,15 +27,43 @@ registerFont(path.join(__dirname, '../fonts/ARIALBD.TTF'), { family: 'ArialBold'
 /* ======================================================
    ⚙️ Setup WhatsApp Web Client
 ====================================================== */
+// ⚙️ Setup WhatsApp Web Client - PERBAIKAN
 let clientReady = false;
+let isReconnecting = false;
 
 const client = new Client({
   authStrategy: new LocalAuth({ dataPath: './wa-session' }),
   puppeteer: {
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: [
+      '--no-sandbox', 
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu'
+    ],
   },
 });
+
+// Fungsi restart client
+const restartClient = async () => {
+  if (isReconnecting) return;
+  
+  isReconnecting = true;
+  console.log('🔄 Restarting WhatsApp client...');
+  
+  try {
+    await client.destroy();
+    await client.initialize();
+    isReconnecting = false;
+  } catch (error) {
+    console.error('❌ Gagal restart client:', error);
+    isReconnecting = false;
+  }
+};
 
 client.on('qr', (qr) => {
   console.log('📱 Scan QR untuk login WhatsApp:');
@@ -45,6 +73,7 @@ client.on('qr', (qr) => {
 client.on('ready', () => {
   console.log('✅ WhatsApp Web siap digunakan!');
   clientReady = true;
+  isReconnecting = false;
 });
 
 client.on('auth_failure', (msg) => {
@@ -52,10 +81,17 @@ client.on('auth_failure', (msg) => {
   clientReady = false;
 });
 
-client.on('disconnected', () => {
-  console.warn('⚠️ WhatsApp Client terputus. Re-inisialisasi...');
+client.on('disconnected', (reason) => {
+  console.warn('⚠️ WhatsApp Client terputus:', reason);
   clientReady = false;
-  client.initialize();
+  setTimeout(() => {
+    restartClient();
+  }, 5000);
+});
+
+// Handle page errors
+client.on('remote_session_saved', () => {
+  console.log('💾 Session saved remotely');
 });
 
 client.initialize();
@@ -80,6 +116,50 @@ function isValidRetirementNumber(value) {
 /* ======================================================
    📩 ROUTE: Tambah Member Baru
 ====================================================== */
+/* ======================================================
+   📩 FUNGSI: Kirim WhatsApp dengan Error Handling
+====================================================== */
+async function sendWhatsAppMessage(chatId, media, caption, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      if (!clientReady) {
+        throw new Error('WhatsApp client belum siap');
+      }
+
+      // Cek apakah chat tersedia
+      await client.getChatById(chatId);
+      
+      if (caption) {
+        await client.sendMessage(chatId, caption);
+      }
+      
+      if (media) {
+        await client.sendMessage(chatId, media, { caption: '🎫 Ini ID Card Anda' });
+      }
+      
+      console.log('✅ Pesan WhatsApp berhasil dikirim');
+      return true;
+      
+    } catch (error) {
+      console.warn(`⚠️ Attempt ${attempt}/${retries} gagal:`, error.message);
+      
+      if (attempt === retries) {
+        throw error;
+      }
+      
+      // Tunggu sebelum retry
+      await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+      
+      // Jika execution context destroyed, restart client
+      if (error.message.includes('Execution context was destroyed') || 
+          error.message.includes('Session closed')) {
+        await restartClient();
+      }
+    }
+  }
+}
+
+// 📩 ROUTE: Tambah Member Baru - PERBAIKAN
 router.post('/api/kirim-member', async (req, res) => {
   const { name, retirement_number, phone_number, birth_date, address, city, branch_id } = req.body;
 
@@ -94,6 +174,8 @@ router.post('/api/kirim-member', async (req, res) => {
     });
   }
 
+  let filePath = null;
+  
   try {
     const card_number = generateCardNumber();
 
@@ -116,7 +198,7 @@ router.post('/api/kirim-member', async (req, res) => {
     ctx.fillText(`NP. ${retirement_number}`, 715, 330);
 
     const filename = `idcard-${Date.now()}.jpg`;
-    const filePath = path.join(uploadDir, filename);
+    filePath = path.join(uploadDir, filename);
     await fs.promises.writeFile(filePath, canvas.toBuffer('image/jpeg', { quality: 0.95 }));
 
     const fotoPath = `/uploads/wa/${filename}`;
@@ -150,16 +232,6 @@ router.post('/api/kirim-member', async (req, res) => {
     console.log('🧩 Member tersimpan di database:', name, retirement_number);
 
     // === Kirim ke WhatsApp ===
-    if (!clientReady) {
-      console.warn('⚠️ Gagal kirim ke WhatsApp: Client belum siap.');
-      return res.json({
-        status: 'warning',
-        message: 'Data tersimpan, tapi client WhatsApp belum siap. Tunggu QR discan.',
-        foto_idcard: fotoPath,
-        data: { name, retirement_number, card_number },
-      });
-    }
-
     try {
       let phoneNumber = phone_number.replace(/[^0-9]/g, '');
       if (phoneNumber.startsWith('0')) phoneNumber = '62' + phoneNumber.slice(1);
@@ -169,8 +241,7 @@ router.post('/api/kirim-member', async (req, res) => {
       const caption = `Hai ${name}, selamat anda telah menjadi anggota baru HIMPANA`;
       const media = MessageMedia.fromFilePath(filePath);
 
-      await client.sendMessage(chatId, caption);
-      await client.sendMessage(chatId, media, { caption: '🎫 Ini ID Card Anda' });
+      await sendWhatsAppMessage(chatId, media, caption);
 
       return res.json({
         status: 'success',
@@ -178,18 +249,34 @@ router.post('/api/kirim-member', async (req, res) => {
         foto_idcard: fotoPath,
         data: { name, retirement_number, card_number, branch_id },
       });
+      
     } catch (waError) {
       console.warn('⚠️ Gagal kirim ke WhatsApp:', waError.message);
+      
+      // Hapus file sementara jika gagal kirim
+      if (filePath && fs.existsSync(filePath)) {
+        await fs.promises.unlink(filePath);
+      }
+      
       return res.json({
         status: 'warning',
-        message: 'Data tersimpan, tapi gagal kirim ke WhatsApp.',
-        foto_idcard: fotoPath,
+        message: 'Data tersimpan, tapi gagal kirim ke WhatsApp: ' + waError.message,
+        foto_idcard: null,
       });
     }
-  } catch (error) {
-    console.error('❌ Error utama:', error);
-    console.error('🧩 Detail error:', error.detail || '(tidak ada detail)');
 
+  } catch (error) {
+    // Hapus file sementara jika ada error
+    if (filePath && fs.existsSync(filePath)) {
+      try {
+        await fs.promises.unlink(filePath);
+      } catch (cleanupError) {
+        console.warn('⚠️ Gagal hapus file sementara:', cleanupError.message);
+      }
+    }
+
+    console.error('❌ Error utama:', error);
+    
     if (error.type === 'duplicate') {
       return res.status(400).json({
         status: 'error',
