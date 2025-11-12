@@ -67,9 +67,9 @@ function isValidRetirementNumber(value) {
    📩 ROUTE: Tambah Member Baru
 ====================================================== */
 router.post('/api/kirim-member', async (req, res) => {
-  const { name, retirement_number, phone_number, birth_date, address, city } = req.body;
+  const { name, retirement_number, phone_number, birth_date, address, city, branch_id } = req.body;
 
-  if (!name || !retirement_number || !phone_number || !birth_date || !address || !city) {
+  if (!name || !retirement_number || !phone_number || !birth_date || !address || !city || !branch_id) {
     return res.status(400).json({ status: 'error', message: 'Data tidak lengkap' });
   }
 
@@ -106,13 +106,14 @@ router.post('/api/kirim-member', async (req, res) => {
     await fs.promises.writeFile(filePath, canvas.toBuffer('image/jpeg', { quality: 0.95 }));
 
     const fotoPath = `/uploads/wa/${filename}`;
+const branchIdInt = parseInt(branch_id, 10) || null;
 
     // === Simpan ke database ===
     await new Promise((resolve, reject) => {
       db.query(
-        `INSERT INTO members (name, retirement_number, card_number, phone_number, birth_date, address, city, card_image_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [name, retirement_number, card_number, phone_number, birth_date, address, city, fotoPath],
+        `INSERT INTO members (name, retirement_number, card_number, phone_number, birth_date, address, city, card_image_path, branch_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [name, retirement_number, card_number, phone_number, birth_date, address, city, fotoPath, branchIdInt],
         (err, results) => {
           if (err) {
             if (err.code === 'ER_DUP_ENTRY') {
@@ -156,7 +157,7 @@ router.post('/api/kirim-member', async (req, res) => {
         status: 'success',
         message: 'Data tersimpan dan ID Card berhasil dikirim ke WhatsApp.',
         foto_idcard: fotoPath,
-        data: { name, retirement_number, card_number },
+        data: { name, retirement_number, card_number, branch_id },
       });
     } catch (waError) {
       console.warn('⚠️ Gagal kirim ke WhatsApp:', waError.message);
