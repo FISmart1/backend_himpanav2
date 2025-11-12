@@ -166,7 +166,7 @@ router.post('/api/kirim-member', async (req, res) => {
   let filePath = null;
 
   try {
-        const branchIdInt = parseInt(branch_id, 10);
+    const branchIdInt = parseInt(branch_id, 10);
 
     // === Ambil kode cabang dari tabel branches ===
     const branchCode = await new Promise((resolve, reject) => {
@@ -178,16 +178,16 @@ router.post('/api/kirim-member', async (req, res) => {
     });
 
     // === Ambil nomor urut terakhir berdasarkan cabang ===
-    const lastNumber = await new Promise((resolve, reject) => {
+    let lastNumber = await new Promise((resolve, reject) => {
       db.query(
         `
-        SELECT 
-          CAST(SUBSTRING_INDEX(card_number, '.', -1) AS UNSIGNED) AS urut
-        FROM members
-        WHERE branch_id = ? AND card_number LIKE CONCAT(?, '.%')
-        ORDER BY urut DESC
-        LIMIT 1
-        `,
+      SELECT 
+        CAST(SUBSTRING_INDEX(card_number, '.', -1) AS UNSIGNED) AS urut
+      FROM members
+      WHERE branch_id = ? AND card_number LIKE CONCAT('NA. ', ?, '.%')
+      ORDER BY urut DESC
+      LIMIT 1
+      `,
         [branchIdInt, branchCode],
         (err, results) => {
           if (err) return reject(err);
@@ -197,10 +197,19 @@ router.post('/api/kirim-member', async (req, res) => {
       );
     });
 
-    // === Nomor urut baru ===
-    const newNumber = String(lastNumber + 1).padStart(5, '0');
-    const card_number = `NA. ${branchCode}.${newNumber}`;
+    // === Cari nomor unik ===
+    let newNumber, card_number, exists;
+    do {
+      newNumber = String(++lastNumber).padStart(5, '0');
+      card_number = `NA. ${branchCode}.${newNumber}`;
 
+      exists = await new Promise((resolve, reject) => {
+        db.query('SELECT COUNT(*) AS total FROM members WHERE card_number = ?', [card_number], (err, results) => {
+          if (err) return reject(err);
+          resolve(results[0].total > 0);
+        });
+      });
+    } while (exists);
 
     // === Generate ID card ===
     const templatePath = path.resolve('assets/ID_CARD_FRONT_2024.jpg');
@@ -230,7 +239,7 @@ router.post('/api/kirim-member', async (req, res) => {
     await new Promise((resolve, reject) => {
       db.query(
         `INSERT INTO members (name, retirement_number, card_number, phone_number, birth_date, address, city, card_image_path, branch_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [name, retirement_number, card_number, phone_number, birth_date, address, city, fotoPath, branchIdInt],
         (err, results) => {
           if (err) {
