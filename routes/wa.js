@@ -35,26 +35,17 @@ const client = new Client({
   authStrategy: new LocalAuth({ dataPath: './wa-session' }),
   puppeteer: {
     headless: true,
-    args: [
-      '--no-sandbox', 
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu'
-    ],
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-accelerated-2d-canvas', '--no-first-run', '--no-zygote', '--single-process', '--disable-gpu'],
   },
 });
 
 // Fungsi restart client
 const restartClient = async () => {
   if (isReconnecting) return;
-  
+
   isReconnecting = true;
   console.log('🔄 Restarting WhatsApp client...');
-  
+
   try {
     await client.destroy();
     await client.initialize();
@@ -128,31 +119,29 @@ async function sendWhatsAppMessage(chatId, media, caption, retries = 3) {
 
       // Cek apakah chat tersedia
       await client.getChatById(chatId);
-      
+
       if (caption) {
         await client.sendMessage(chatId, caption);
       }
-      
+
       if (media) {
         await client.sendMessage(chatId, media, { caption: '🎫 Ini ID Card Anda' });
       }
-      
+
       console.log('✅ Pesan WhatsApp berhasil dikirim');
       return true;
-      
     } catch (error) {
       console.warn(`⚠️ Attempt ${attempt}/${retries} gagal:`, error.message);
-      
+
       if (attempt === retries) {
         throw error;
       }
-      
+
       // Tunggu sebelum retry
-      await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+
       // Jika execution context destroyed, restart client
-      if (error.message.includes('Execution context was destroyed') || 
-          error.message.includes('Session closed')) {
+      if (error.message.includes('Execution context was destroyed') || error.message.includes('Session closed')) {
         await restartClient();
       }
     }
@@ -175,9 +164,39 @@ router.post('/api/kirim-member', async (req, res) => {
   }
 
   let filePath = null;
-  
+
   try {
-    const card_number = generateCardNumber();
+    const branchIdInt = parseInt(branch_id, 10);
+
+    // === Ambil kode cabang dari tabel branches ===
+    const branchCode = await new Promise((resolve, reject) => {
+      db.query('SELECT code FROM branches WHERE id = ?', [branchIdInt], (err, results) => {
+        if (err) return reject(err);
+        if (results.length === 0) return reject(new Error('Cabang tidak ditemukan.'));
+        resolve(results[0].code);
+      });
+    });
+
+    // === Ambil nomor urut terakhir dari cabang tersebut ===
+    const lastNumber = await new Promise((resolve, reject) => {
+      db.query(
+        `SELECT card_number FROM members 
+         WHERE branch_id = ? 
+         AND card_number LIKE ? 
+         ORDER BY id DESC LIMIT 1`,
+        [branchIdInt, `${branchCode}.%`],
+        (err, results) => {
+          if (err) return reject(err);
+          if (results.length === 0) return resolve(0);
+          const last = results[0].card_number.split('.')[1];
+          resolve(parseInt(last, 10));
+        }
+      );
+    });
+
+    // === Buat nomor urut baru ===
+    const newNumber = String(lastNumber + 1).padStart(5, '0');
+    const card_number = `${branchCode}.${newNumber}`;
 
     // === Generate ID card ===
     const templatePath = path.resolve('assets/ID_CARD_FRONT_2024.jpg');
@@ -202,7 +221,6 @@ router.post('/api/kirim-member', async (req, res) => {
     await fs.promises.writeFile(filePath, canvas.toBuffer('image/jpeg', { quality: 0.95 }));
 
     const fotoPath = `/uploads/wa/${filename}`;
-    const branchIdInt = parseInt(branch_id, 10) || null;
 
     // === Simpan ke database ===
     await new Promise((resolve, reject) => {
@@ -229,7 +247,7 @@ router.post('/api/kirim-member', async (req, res) => {
       );
     });
 
-    console.log('🧩 Member tersimpan di database:', name, retirement_number);
+    console.log('🧩 Member tersimpan di database:', name, retirement_number, card_number);
 
     // === Kirim ke WhatsApp ===
     try {
@@ -249,24 +267,20 @@ router.post('/api/kirim-member', async (req, res) => {
         foto_idcard: fotoPath,
         data: { name, retirement_number, card_number, branch_id },
       });
-      
     } catch (waError) {
       console.warn('⚠️ Gagal kirim ke WhatsApp:', waError.message);
-      
-      // Hapus file sementara jika gagal kirim
+
       if (filePath && fs.existsSync(filePath)) {
         await fs.promises.unlink(filePath);
       }
-      
+
       return res.json({
         status: 'warning',
         message: 'Data tersimpan, tapi gagal kirim ke WhatsApp: ' + waError.message,
         foto_idcard: null,
       });
     }
-
   } catch (error) {
-    // Hapus file sementara jika ada error
     if (filePath && fs.existsSync(filePath)) {
       try {
         await fs.promises.unlink(filePath);
@@ -276,7 +290,7 @@ router.post('/api/kirim-member', async (req, res) => {
     }
 
     console.error('❌ Error utama:', error);
-    
+
     if (error.type === 'duplicate') {
       return res.status(400).json({
         status: 'error',
