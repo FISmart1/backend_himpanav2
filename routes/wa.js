@@ -166,7 +166,7 @@ router.post('/api/kirim-member', async (req, res) => {
   let filePath = null;
 
   try {
-    const branchIdInt = parseInt(branch_id, 10);
+        const branchIdInt = parseInt(branch_id, 10);
 
     // === Ambil kode cabang dari tabel branches ===
     const branchCode = await new Promise((resolve, reject) => {
@@ -177,26 +177,30 @@ router.post('/api/kirim-member', async (req, res) => {
       });
     });
 
-    // === Ambil nomor urut terakhir dari cabang tersebut ===
+    // === Ambil nomor urut terakhir berdasarkan cabang ===
     const lastNumber = await new Promise((resolve, reject) => {
       db.query(
-        `SELECT card_number FROM members 
-         WHERE branch_id = ? 
-         AND card_number LIKE ? 
-         ORDER BY id DESC LIMIT 1`,
-        [branchIdInt, `${branchCode}.%`],
+        `
+        SELECT 
+          CAST(SUBSTRING_INDEX(card_number, '.', -1) AS UNSIGNED) AS urut
+        FROM members
+        WHERE branch_id = ? AND card_number LIKE CONCAT(?, '.%')
+        ORDER BY urut DESC
+        LIMIT 1
+        `,
+        [branchIdInt, branchCode],
         (err, results) => {
           if (err) return reject(err);
-          if (results.length === 0) return resolve(0);
-          const last = results[0].card_number.split('.')[1];
-          resolve(parseInt(last, 10));
+          if (results.length === 0) return resolve(0); // Belum ada data di cabang ini
+          resolve(results[0].urut || 0);
         }
       );
     });
 
-    // === Buat nomor urut baru ===
+    // === Nomor urut baru ===
     const newNumber = String(lastNumber + 1).padStart(5, '0');
     const card_number = `${branchCode}.${newNumber}`;
+
 
     // === Generate ID card ===
     const templatePath = path.resolve('assets/ID_CARD_FRONT_2024.jpg');
