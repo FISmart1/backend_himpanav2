@@ -199,7 +199,7 @@ router.post('/api/kirim-member', async (req, res) => {
 
     // === Nomor urut baru ===
     const newNumber = String(lastNumber + 1).padStart(5, '0');
-    const card_number = `${branchCode}.${newNumber}`;
+    const card_number = `NA. ${branchCode}.${newNumber}`;
 
 
     // === Generate ID card ===
