@@ -11,18 +11,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const router = express.Router();
 
-// Folder upload
+/* ======================================================
+   📁 Folder upload
+====================================================== */
 const uploadDir = 'uploads/wa';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Register font
+/* ======================================================
+   🖋️ Register font
+====================================================== */
 registerFont(path.join(__dirname, '../fonts/ARIALBD.TTF'), { family: 'ArialBold' });
 
 /* ======================================================
    ⚙️ Setup WhatsApp Web Client
 ====================================================== */
+let clientReady = false;
+
 const client = new Client({
   authStrategy: new LocalAuth({ dataPath: './wa-session' }),
   puppeteer: {
@@ -38,10 +44,18 @@ client.on('qr', (qr) => {
 
 client.on('ready', () => {
   console.log('✅ WhatsApp Web siap digunakan!');
+  clientReady = true;
 });
 
 client.on('auth_failure', (msg) => {
   console.error('❌ Gagal autentikasi WhatsApp:', msg);
+  clientReady = false;
+});
+
+client.on('disconnected', () => {
+  console.warn('⚠️ WhatsApp Client terputus. Re-inisialisasi...');
+  clientReady = false;
+  client.initialize();
 });
 
 client.initialize();
@@ -135,12 +149,18 @@ router.post('/api/kirim-member', async (req, res) => {
 
     console.log('🧩 Member tersimpan di database:', name, retirement_number);
 
-    // === Kirim ke WhatsApp (whatsapp-web.js) ===
-    try {
-      if (!client.info || !client.info.wid) {
-        throw new Error('Client WhatsApp belum siap. Tunggu sampai QR discan.');
-      }
+    // === Kirim ke WhatsApp ===
+    if (!clientReady) {
+      console.warn('⚠️ Gagal kirim ke WhatsApp: Client belum siap.');
+      return res.json({
+        status: 'warning',
+        message: 'Data tersimpan, tapi client WhatsApp belum siap. Tunggu QR discan.',
+        foto_idcard: fotoPath,
+        data: { name, retirement_number, card_number },
+      });
+    }
 
+    try {
       let phoneNumber = phone_number.replace(/[^0-9]/g, '');
       if (phoneNumber.startsWith('0')) phoneNumber = '62' + phoneNumber.slice(1);
       else if (!phoneNumber.startsWith('62')) phoneNumber = '62' + phoneNumber;
@@ -149,9 +169,8 @@ router.post('/api/kirim-member', async (req, res) => {
       const caption = `Hai ${name}, selamat anda telah menjadi anggota baru HIMPANA`;
       const media = MessageMedia.fromFilePath(filePath);
 
-      // kirim teks dan media
       await client.sendMessage(chatId, caption);
-      await client.sendMessage(chatId, media, { caption: 'ini 🎫ID Card Kamu' });
+      await client.sendMessage(chatId, media, { caption: '🎫 Ini ID Card Anda' });
 
       return res.json({
         status: 'success',
@@ -163,9 +182,8 @@ router.post('/api/kirim-member', async (req, res) => {
       console.warn('⚠️ Gagal kirim ke WhatsApp:', waError.message);
       return res.json({
         status: 'warning',
-        message: 'Data berhasil disimpan tapi gagal kirim ke WhatsApp.',
+        message: 'Data tersimpan, tapi gagal kirim ke WhatsApp.',
         foto_idcard: fotoPath,
-        data: { name, retirement_number, card_number },
       });
     }
   } catch (error) {
