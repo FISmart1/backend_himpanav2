@@ -106,7 +106,7 @@ router.post('/api/kirim-member', async (req, res) => {
     await fs.promises.writeFile(filePath, canvas.toBuffer('image/jpeg', { quality: 0.95 }));
 
     const fotoPath = `/uploads/wa/${filename}`;
-const branchIdInt = parseInt(branch_id, 10) || null;
+    const branchIdInt = parseInt(branch_id, 10) || null;
 
     // === Simpan ke database ===
     await new Promise((resolve, reject) => {
@@ -169,7 +169,8 @@ const branchIdInt = parseInt(branch_id, 10) || null;
       });
     }
   } catch (error) {
-    console.error('❌ Error utama:', error.message || error);
+    console.error('❌ Error utama:', error);
+    console.error('🧩 Detail error:', error.detail || '(tidak ada detail)');
 
     if (error.type === 'duplicate') {
       return res.status(400).json({
@@ -204,20 +205,14 @@ router.put('/api/update-member', async (req, res) => {
   }
 
   try {
-    const [oldData] = await db.promise().query(
-      'SELECT card_image_path FROM members WHERE retirement_number = ? LIMIT 1',
-      [old_retirement_number]
-    );
+    const [oldData] = await db.promise().query('SELECT card_image_path FROM members WHERE retirement_number = ? LIMIT 1', [old_retirement_number]);
 
     if (!oldData.length) {
       return res.status(404).json({ status: 'error', message: 'Data member lama tidak ditemukan.' });
     }
 
     if (retirement_number !== old_retirement_number) {
-      const [dupeCheck] = await db.promise().query(
-        'SELECT retirement_number FROM members WHERE retirement_number = ? LIMIT 1',
-        [retirement_number]
-      );
+      const [dupeCheck] = await db.promise().query('SELECT retirement_number FROM members WHERE retirement_number = ? LIMIT 1', [retirement_number]);
       if (dupeCheck.length > 0) {
         return res.status(400).json({
           status: 'error',
