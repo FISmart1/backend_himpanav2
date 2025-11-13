@@ -487,5 +487,48 @@ router.get('/api/member', async (req, res) => {
   }
 });
 
+// 🗑️ Hapus member berdasarkan ID
+router.delete('/api/member/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 🔹 Cek apakah member ada
+    const check = await new Promise((resolve, reject) => {
+      db.query('SELECT id FROM members WHERE id = ?', [id], (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows);
+      });
+    });
+
+    if (!check.length) {
+      return res.status(404).json({
+        status: 'not_found',
+        message: 'Member tidak ditemukan.',
+      });
+    }
+
+    // 🔹 Hapus data member
+    await new Promise((resolve, reject) => {
+      db.query('DELETE FROM members WHERE id = ?', [id], (err, result) => {
+        if (err) return reject(err);
+        resolve(result);
+      });
+    });
+
+    return res.json({
+      status: 'success',
+      message: 'Member berhasil dihapus.',
+    });
+  } catch (error) {
+    console.error('❌ Error DELETE /api/member:', error.message);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal menghapus member.',
+      detail: error.message,
+    });
+  }
+});
+
+
 
 export default router;
