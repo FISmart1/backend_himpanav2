@@ -414,4 +414,78 @@ router.put('/api/update-member', async (req, res) => {
   }
 });
 
+router.get('/api/member', async (req, res) => {
+  try {
+    const { branch_id, city, name } = req.query;
+
+    // 🔹 Siapkan query dasar
+    let sql = `
+      SELECT 
+        m.id,
+        m.name,
+        m.retirement_number,
+        m.card_number,
+        m.phone_number,
+        m.birth_date,
+        m.address,
+        m.city,
+        m.card_image_path,
+        m.branch_id,
+        b.name AS branch_name,
+        b.code AS branch_code
+      FROM members m
+      LEFT JOIN branches b ON m.branch_id = b.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    // 🔹 Filter opsional
+    if (branch_id) {
+      sql += ' AND m.branch_id = ?';
+      params.push(branch_id);
+    }
+    if (city) {
+      sql += ' AND m.city LIKE ?';
+      params.push(`%${city}%`);
+    }
+    if (name) {
+      sql += ' AND m.name LIKE ?';
+      params.push(`%${name}%`);
+    }
+
+    sql += ' ORDER BY m.created_at DESC';
+
+    // 🔹 Jalankan query
+    const results = await new Promise((resolve, reject) => {
+      db.query(sql, params, (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows);
+      });
+    });
+
+    if (!results.length) {
+      return res.status(404).json({
+        status: 'empty',
+        message: 'Belum ada data member yang cocok.',
+        data: [],
+      });
+    }
+
+    return res.json({
+      status: 'success',
+      message: 'Data member berhasil diambil.',
+      total: results.length,
+      data: results,
+    });
+  } catch (error) {
+    console.error('❌ Error GET /api/member:', error.message);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Gagal mengambil data member.',
+      detail: error.message,
+    });
+  }
+});
+
+
 export default router;
