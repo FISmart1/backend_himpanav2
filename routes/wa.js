@@ -272,7 +272,14 @@ router.post('/api/kirim-member', async (req, res) => {
       const caption = `Hai ${name}, selamat anda telah menjadi anggota baru HIMPANA`;
       const media = MessageMedia.fromFilePath(filePath);
 
+      // === Kirim media pertama (depan) ===
       await sendWhatsAppMessage(chatId, media, caption);
+
+      // === Kirim media kedua (belakang) ===
+      const backImagePath = path.resolve('assets/belakang-kta.png');
+      const mediaBack = MessageMedia.fromFilePath(backImagePath);
+
+      await sendWhatsAppMessage(chatId, mediaBack, 'Ini adalah sisi belakang kartu anggota.');
 
       return res.json({
         status: 'success',
@@ -528,7 +535,5 @@ router.delete('/api/member/:id', async (req, res) => {
     });
   }
 });
-
-
 
 export default router;
