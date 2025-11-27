@@ -1,3 +1,18 @@
-2025/11/06-12:39:54.745 1aac Reusing MANIFEST C:\Users\Ristina Eka\Documents\cup\backend_himpana\wa-session\session\Default\Local Storage\leveldb/MANIFEST-000001
-2025/11/06-12:39:54.747 1aac Recovering log #3
-2025/11/06-12:39:54.748 1aac Reusing old log C:\Users\Ristina Eka\Documents\cup\backend_himpana\wa-session\session\Default\Local Storage\leveldb/000003.log 
+2025/11/26-06:03:08.209 16cc9 Reusing MANIFEST /root/backend_himpanav2/wa-session/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/11/26-06:03:08.210 16cc9 Recovering log #85
+2025/11/26-06:03:08.210 16cc9 Reusing old log /root/backend_himpanav2/wa-session/session/Default/Local Storage/leveldb/000085.log 
+2025/11/26-10:41:11.860 173ad Level-0 table #89: started
+2025/11/26-10:41:11.878 173ad Level-0 table #89: 14327 bytes OK
+2025/11/26-10:41:11.906 173ad Delete type=0 #85
+2025/11/27-04:24:26.207 187b3 Level-0 table #91: started
+2025/11/27-04:24:26.223 187b3 Level-0 table #91: 12780 bytes OK
+2025/11/27-04:24:26.239 187b3 Delete type=0 #88
+2025/11/27-04:24:26.240 187d1 Compacting 4@0 + 1@1 files
+2025/11/27-04:24:26.243 187d1 Generated table #92@0: 72 keys, 5608 bytes
+2025/11/27-04:24:26.243 187d1 Compacted 4@0 + 1@1 files => 5608 bytes
+2025/11/27-04:24:26.244 187d1 compacted to: files[ 0 1 1 0 0 0 0 ]
+2025/11/27-04:24:26.244 187d1 Delete type=2 #86
+2025/11/27-04:24:26.244 187d1 Delete type=2 #91
+2025/11/27-04:24:26.244 187d1 Delete type=2 #84
+2025/11/27-04:24:26.244 187d1 Delete type=2 #89
+2025/11/27-04:24:26.244 187d1 Delete type=2 #82

@@ -1,2 +1,3 @@
-2025/11/06-12:37:41.289 25a0 Creating DB C:\Users\Ristina Eka\Documents\cup\backend_himpana\wa-session\session\Default\Session Storage since it was missing.
-2025/11/06-12:37:41.332 25a0 Reusing MANIFEST C:\Users\Ristina Eka\Documents\cup\backend_himpana\wa-session\session\Default\Session Storage/MANIFEST-000001
+2025/11/26-06:03:08.697 16cd2 Reusing MANIFEST /root/backend_himpanav2/wa-session/session/Default/Session Storage/MANIFEST-000001
+2025/11/26-06:03:08.697 16cd2 Recovering log #3
+2025/11/26-06:03:08.705 16cd2 Reusing old log /root/backend_himpanav2/wa-session/session/Default/Session Storage/000003.log 

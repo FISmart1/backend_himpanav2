@@ -1,2 +1,3 @@
-2025/11/06-12:37:43.770 54b8 Creating DB C:\Users\Ristina Eka\Documents\cup\backend_himpana\wa-session\session\Default\Service Worker\Database since it was missing.
-2025/11/06-12:37:43.784 54b8 Reusing MANIFEST C:\Users\Ristina Eka\Documents\cup\backend_himpana\wa-session\session\Default\Service Worker\Database/MANIFEST-000001
+2025/11/17-03:22:57.678 6534 Reusing MANIFEST /root/backend_himpanav2/wa-session/session/Default/Service Worker/Database/MANIFEST-000001
+2025/11/17-03:22:57.678 6534 Recovering log #3
+2025/11/17-03:22:57.678 6534 Reusing old log /root/backend_himpanav2/wa-session/session/Default/Service Worker/Database/000003.log 
