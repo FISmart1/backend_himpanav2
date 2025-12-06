@@ -10,6 +10,7 @@ import artikelRoutes from "./routes/artikelRoute.js";
 import router from "./routes/wa.js";
 import loginmember from "./routes/memberRoutes.js";
 import cabang from "./routes/cabangProvinsi.js";
+import galeri from "./routes/galeri.js"
 import { createCanvas } from "canvas";
 
 const app = express();
@@ -51,7 +52,8 @@ app.use("/uploads", express.static("uploads"));
 // routes berita & artikel
 app.use("/api/berita", beritaRoutes);
 app.use("/api/artikel", artikelRoutes);
-app.use("/api/cabang", cabang)
+app.use("/api/cabang", cabang);
+app.use("/api/galeri");
 app.use(router)
 app.use(loginmember)
 
